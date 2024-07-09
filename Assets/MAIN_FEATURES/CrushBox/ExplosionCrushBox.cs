@@ -5,6 +5,9 @@ using UnityEngine;
 
 public class ExplosionCrushBox : MonoBehaviour
 {
+    public GameObject _box;
+    public GameObject _partBox;
+    public GameObject _poofDustFX;
     public List<GameObject> objects; // Список объектов, которые будут анимироваться
     public Transform target; // Цель, от которой объекты будут разлетаться
     public float scatterDistance = 5f; // Расстояние, на которое объекты будут разбросаны
@@ -14,12 +17,17 @@ public class ExplosionCrushBox : MonoBehaviour
     public float spreadAngle = 120f; // Угол разлета частиц
     public float maxDelay = 0.2f; // Максимальная случайная задержка перед началом анимации
     public float rotationSpeed = 360f; // Скорость вращения объектов
-
+    public float rotationSlowdownDuration = 0.3f; // Время замедления вращения
+    public float fadeDuration = 1f; // Продолжительность изменения цвета на прозрачный
+    public float scaleDownDuration = 1f;
+    
     void Start()
     {
+        _box.SetActive(false);
+        _partBox.SetActive(true);
+        _poofDustFX.SetActive(true);
         ScatterObjects();
     }
-
     void ScatterObjects()
     {
         foreach (GameObject obj in objects)
@@ -55,11 +63,28 @@ public class ExplosionCrushBox : MonoBehaviour
             sequence.Join(obj.transform.DOScale(randomScale, duration).SetEase(Ease.InOutBack).SetDelay(randomDelay));
 
             // Анимация вращения
-            sequence.Join(obj.transform.DORotate(new Vector3(0, Random.Range(0, 360), 0), duration, RotateMode.FastBeyond360)
-                .SetEase(Ease.InOutBack).SetDelay(randomDelay));
+            Tween rotationTween = obj.transform.DORotate(new Vector3(0, Random.Range(0, 360), 0), duration, RotateMode.FastBeyond360)
+                .SetEase(Ease.InOutBack).SetDelay(randomDelay).SetLoops(-1, LoopType.Incremental);
 
-            // Остановка вращения после завершения полета
-            sequence.AppendCallback(() => obj.transform.DOKill());
+            // Остановка вращения после завершения полета с замедлением
+            sequence.AppendCallback(() => 
+            {
+                rotationTween.Kill(); 
+                obj.transform.DORotate(Vector3.zero, rotationSlowdownDuration).SetEase(Ease.OutQuad);
+            });
+
+            // Изменение цвета на прозрачный после завершения полета
+            //sequence.AppendInterval(rotationSlowdownDuration);
+            sequence.Append(obj.transform.DOScale(Vector3.zero, scaleDownDuration).SetEase(Ease.Linear));
+            // sequence.AppendCallback(() =>
+            // {
+            //     Renderer renderer = obj.GetComponent<Renderer>();
+            //     if (renderer != null)
+            //     {
+            //         Color color = renderer.material.color;
+            //         renderer.material.DOColor(new Color(color.r, color.g, color.b, 0), fadeDuration).SetEase(Ease.Linear);
+            //     }
+            // });
         }
     }
 }
